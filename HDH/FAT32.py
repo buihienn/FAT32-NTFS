@@ -2,19 +2,29 @@ from enum import Flag, auto
 from datetime import datetime
 from itertools import chain
 import re
+import os
+class TreeNode:
+    def __init__(self, name):
+        self.name = name
+        self.children = {}
+
+
+class DirectoryTree:
+    def __init__(self):
+        self.root = TreeNode("/")
 class FAT32_Attribute(Flag):
     READ_ONLY = auto()
     HIDDEN = auto()
     SYSTEM = auto()
-    VOLLABLE = auto()
+    VOLLATILE = auto()
     DIRECTORY = auto()
     ARCHIVE = auto()
 class FAT:#doc du lieu tu FAT
-    def read_bytes(FAT,data):
+    def __init__(FAT,data):
         FAT.data=data
         FAT.bytes=[]
         for bit in range(0,len(FAT.data),4):
-            FAT.bytes.insert(len(FAT.clusters),int.from_bytes(FAT.data[bit:bit + 4], byteorder='little'))#little endian
+            FAT.bytes.insert(len(FAT.bytes),int.from_bytes(FAT.data[bit:bit + 4], byteorder='little'))#little endian
 
     def get_cluster(FAT,bytes_idx):
         list_cluster = []
@@ -35,6 +45,7 @@ class RDET_ENTRY:
         year = 1980 + ((date_value & 0b1111111000000000) >> 9)
         month = (date_value & 0b0000000111100000) >> 5
         day = date_value & 0b0000000000011111
+       
         return year,month,day
     def LRN(entry):
         name = b""
@@ -44,39 +55,46 @@ class RDET_ENTRY:
                 name = name[:-2]
                 break
         return name.decode('utf-16le').strip('\x00')
-    def get_attribute(entry,data_bytes):
+    def __init__(entry,data_bytes):
         entry.data=data_bytes
-        entry.entry_name=""
-        entry.attr_byte=entry.data[11:12]#offset 0xB de lay thuoc tinh
+        entry.entry_name=''
+        entry.attr_byte=entry.data[0xB:0xC]#offset 0xB de lay thuoc tinh
         entry.is_sub_entry = False
-        if entry.attr_byte==b"\x0F":
+        if entry.attr_byte==b'\x0f':
             entry.is_sub_entry = True
         entry.is_deleted = entry.data[0] == 0xe5
         entry.is_empty = entry.data[0] == 0x00
-        entry.is_label = FAT32_Attribute.VOLLABLE in FAT32_Attribute(int.from_bytes(entry.attr_byte, byteorder='little'))
-        entry.is_system= FAT32_Attribute.SYSTEM in FAT32_Attribute(int.from_bytes(entry.attr_byte, byteorder='little'))
-        entry.is_directory=FAT32_Attribute.DIRECTORY in FAT32_Attribute(int.from_bytes(entry.attr_byte, byteorder='little'))
-        entry.is_archive=FAT32_Attribute.ARCHIVE in FAT32_Attribute(int.from_bytes(entry.attr_byte, byteorder='little'))
-        entry.attr=FAT32_Attribute(int.from_bytes(entry.attr_byte,byteorder='little'))
-        entry.size=0
+       
+       
+        
+        entry.is_label = FAT32_Attribute.VOLLATILE in FAT32_Attribute(int.from_bytes(entry.attr_byte,byteorder='little'))
+        entry.size=int.from_bytes(entry.data[0x1C:0x20], byteorder='little')
+        
         entry.create_date=0
         entry.last_accessed=0
         entry.last_updated=0
         entry.extend_name=b""#cai nay phai byte string
-        entry.LRN=""
+        
         if not entry.is_sub_entry:#not LRN
-            entry.name=entry.data[0:8]
+            entry.name=entry.data[:8]
+            
             entry.extend_name=entry.data[8:11]
             if entry.is_deleted or entry.is_empty:
                 entry.name=""
-            if entry.is_label:
+                return
+            entry.attr=FAT32_Attribute(int.from_bytes(entry.attr_byte,byteorder='little'))
+        
+            if FAT32_Attribute.VOLLATILE in entry.attr:
+                entry.is_label=True
                 return
             #create time
-            entry.temp_create_time=int.from_bytes(entry.data[13:16],byteorder='little')
+            entry.temp_create_time=int.from_bytes(entry.data[0xD:0x10],byteorder='little')
+            
             hours , minutes ,seconds ,milliseconds =entry.convert_create_time(entry.temp_create_time)
-
-            entry.temp_create_date=int.from_bytes(entry.data[16:18],byteorder='little')
+          
+            entry.temp_create_date=int.from_bytes(entry.data[0x10:0x12],byteorder='little')
             year,month,day=entry.convert_create_date(entry.temp_create_date)
+          
             entry.create_date= datetime(year,month,day,hours,minutes,seconds,milliseconds)
             #last accessed time
             entry.temp_last_accessed=int.from_bytes(entry.data[18:20],byteorder='little')
@@ -95,11 +113,11 @@ class RDET_ENTRY:
             entry.index=entry.data[0]
             entry.name=entry.LRN()
     def is_active_entry(entry):
-        return not(entry.is_empty or entry.is_deleted or entry.is_sub_entry or entry.is_label or entry.is_system)
+        return not(entry.is_empty or entry.is_deleted or entry.is_sub_entry or entry.is_label or FAT32_Attribute.SYSTEM in entry.attr)
     def is_direct(entry):
-        return entry.is_directory
+        return FAT32_Attribute.DIRECTORY in entry.attr
     def is_arch(entry):
-        return entry.is_archive
+        return FAT32_Attribute.ARCHIVE in entry.attr
 class RDET:
     def get_full_entry_name(rdet) -> list[RDET_ENTRY]:
         entry_name = ''
@@ -110,7 +128,7 @@ class RDET:
             if entries[-1].is_empty or entries[-1].is_deleted:
                 entry_name = ''
                 continue
-            elif entries[-1].is_subentry:
+            elif entries[-1].is_sub_entry:
                 entry_name = entries[-1].name + entry_name
                 continue
 
@@ -140,14 +158,16 @@ class RDET:
                 return rdet.entries[i]
         return None
 class FAT32:
+    def count_sector_offset_in_cluster(fat32,index):
+        return fat32.reserved_sec + fat32.sec_per_fat * fat32.num_fat + (index-2) * fat32.sec_per_clus
     def get_all_cluster_data(fat32, cluster_index):
         cluster_list = fat32.list_FAT32[0].get_cluster(cluster_index)
         data = b""
 
         for i in cluster_list:
-            if i<2:
-                continue
-            sector_index = fat32.reserved_sec + fat32.sec_per_fat*fat32.num_fat + i*fat32.sec_per_clus
+            #if i<2:
+                #continue
+            sector_index = fat32.reserved_sec + fat32.sec_per_fat*fat32.num_fat + (i-2)*fat32.sec_per_clus
             fat32.bin_data.seek(sector_index * fat32.bytes_per_sec)
             data += fat32.bin_data.read(fat32.bytes_per_sec * fat32.sec_per_clus)
         return data
@@ -161,6 +181,7 @@ class FAT32:
         fat32.boot_sector['Start Cluster of RDET'] = int.from_bytes(fat32.boot_sector_data[0x2C:0x30], 'little')
         fat32.boot_sector['FAT Name'] = fat32.boot_sector_data[0x52:0x5A]
         fat32.boot_sector['Start Sector'] = fat32.boot_sector['Reserved Sectors'] + fat32.boot_sector['Numbers of FAT'] * fat32.boot_sector['Sectors/FAT']#do FAT32 co phan reserved nen no thuoc ve start sector
+        
     def __init__(fat32,volume_name):
         fat32.name=  volume_name
         fat32.cwd=[fat32.name]   
@@ -168,9 +189,9 @@ class FAT32:
             fat32.bin_data=open(rf"\\.\{fat32.name}", 'rb')
             fat32.boot_sector={}
 
-            fat32.bsector_data=fat32.bin_data.read(512)
+            fat32.boot_sector_data=fat32.bin_data.read(512)
             fat32.extract_boot_sector()
-            if fat32.boot_sector['FAT Name'] != b'FAT32':
+            if fat32.boot_sector['FAT Name'] != b'FAT32   ':
                 raise Exception('NOT FAT32')
             
             fat32.boot_sector['FAT Name']=fat32.boot_sector['FAT Name'].decode()
@@ -190,21 +211,23 @@ class FAT32:
                 fat32.list_FAT32.append(FAT(fat32.bin_data.read(FAT32_size)))
 
             #RDET
-            fat32.RDET=RDET(fat32.get_all_cluster_data(fat32.start_clus_rdet))
+            s_index=fat32.boot_sector['Start Cluster of RDET']
+            fat32.RDET=RDET(fat32.get_all_cluster_data( s_index))
             fat32.DET={}
-            fat32.DET[fat32.start_clus_rdet]=fat32.RDET
+            fat32.DET[ s_index]=fat32.RDET
         except Exception as error:
             print(f"Error:{error}")
             exit()
-    def __info__(fat32):
-        data = "VOLUME INFORMATION\n"
+    def __str__(fat32):
+        
+        data = "VOLUME INFO\n"
         data += "Name: " + fat32.name + '\n'
         info = fat32.boot_sector.items()
 
         for i in info:
             data += str(i[0]) + ': ' + str(i[1]) + '\n'
         return data
-    def __close__(self):
+    def __del__(self):
         if getattr(self, "bin_data", None):
             print("Closing")
             self.bin_data.close()
@@ -215,26 +238,27 @@ class FAT32:
             boot_sector.read(1)  #MAYBE
             boot_sector.seek(0x52)
             FAT_type = boot_sector.read(8)
-
-            if FAT_type == b'FAT32':
+            
+            if FAT_type == b'FAT32   ':
                 return True
             return False
         except Exception as error:
+          
             print(f'Error: {error}')
             exit()
     
     def split_path(fat32,path):
         dirs = path.replace('/', '\\').strip('\\').split('\\')
         return dirs
-    def retrieve_path(fat32,path):
+    def retrieve_path(fat32,path):#duong dan trong thao tac cd va data
         if path=="":
             raise Exception("Path is empty!")
-        path=fat32.split_path(path)
+        path=fat32.split_path(path)#tach duong dan thanh cac phan tu
         if path[0]== fat32.name:#duong dan co chua volume
-            cur_det=fat32.DET[fat32.start_clus_rdet]
+            cur_det=fat32.DET[fat32.start_clus_rdet]#dat cur_det vao direct entry bat dau
             path.pop(0)
         else:#duong dan ko co bat dau tu volume name
-            cur_det=fat32.RDET
+            cur_det=fat32.RDET#dat cur_det vao RDET de kiem tra tu o dia
         
         for i in path:
             entry=cur_det.find_entry(i)
@@ -242,4 +266,107 @@ class FAT32:
                 raise Exception("Directory not found!")
             if entry.is_direct():
                 if entry.start_cluster==0:
-                    cur_det=
+                    cur_det=fat32.DET[fat32.start_clus_rdet]
+                    continue
+                if entry.start_cluster in fat32.DET:
+                    cur_det=fat32.DET[entry.start_cluster]
+                    continue
+                fat32.DET[entry.start_cluster]=RDET(fat32.get_all_cluster_data( entry.start_cluster))
+                cur_det=fat32.DET[entry.start_cluster]
+            else:
+                raise Exception("Not a directory")
+        return cur_det
+    def getCWD(fat32):
+        if len(fat32.cwd)==1:
+            return fat32.cwd[0]+"\\"
+        return"\\".join(fat32.cwd)
+    def get_directory_info(fat32,path=None):
+        try:
+            if path is not None:
+                cur_det=fat32.retrieve_path(path)
+                print(cur_det)
+                entry_list=cur_det.get_active_entries()
+            else:
+                entry_list=fat32.RDET.get_active_entries()
+            info=[{
+                "Flags":i.attr.value,
+                "Date Modified":i.last_updated,
+                "Size":i.size,
+                "Name":i.entry_name,
+                "Date Created":i.create_date,
+                "Last Accessed":i.last_accessed,
+                "Sector":(i.start_cluster+2)*fat32.sec_per_clus if i.start_cluster==0 else i.start_cluster*fat32.sec_per_clus
+
+            }for i in entry_list]
+            return info
+        except Exception as error:
+            raise(error)
+    def move_to_directory(fat32,path):#cd vao thu muc
+        if path is None:
+            raise Exception("Path is None!")
+        try:
+            cur_det=fat32.retrieve_path(path)
+            fat32.RDET=cur_det
+            dirs=fat32.split_path(path)
+            if dirs[0]==fat32.name:
+                fat32.cwd.clear()
+                fat32.cwd.insert(0,fat32.name)
+                dirs.pop(0)
+            for i in dirs:
+                if i =="..":
+                    fat32.cwd.pop()
+                elif i!=".":
+                    fat32.cwd.append(i)
+        except Exception as e:
+            raise e
+    def get_File_content(fat32,path):
+        split_path=fat32.split_path(path)
+        if len (split_path)>1:
+            volume_name=split_path[-1]
+            dir_path="\\".join(split_path[:-1])
+            cur_det=fat32.retrieve_path(dir_path)
+            entry=cur_det.find_entry(volume_name)
+        else:
+            entry=fat32.RDET.find_entry(split_path[0])
+        if entry is None:
+            raise Exception("File not exists")
+        if entry.is_direct():
+            raise Exception("Is a directory")
+        cluster_list=fat32.list_FAT32[0].get_cluster(entry.start_cluster)
+        data=""
+        size=entry.size
+        for cluster in cluster_list:
+            if size<=0:
+                break
+            #if cluster<2:
+             #   continue
+            sector_offset=fat32.count_sector_offset_in_cluster(cluster)#tim vi tri sector bat dau cua entry 
+            fat32.bin_data.seek(sector_offset*fat32.bytes_per_sec)#seek toi vi tri sector bat dau do
+            raw_data=fat32.bin_data.read(min(fat32.sec_per_clus*fat32.bytes_per_sec,size))#doc du lieu entry nay
+            size-=fat32.sec_per_clus*fat32.bytes_per_sec# doc tung cluster nen lay entry size - size cluster de dung vong lap
+            try:
+                data+= raw_data.decode()
+            except UnicodeDecodeError as e:
+                raise Exception("not text file")
+            except Exception as e:
+                raise e
+        return data
+    # def make_tree(fat32):
+    #     tree = DirectoryTree()
+    #     root_cluster = fat32.boot_sector["Start Cluster of RDET"]
+    #     build_directory_tree_recursive(tree.root, "", root_cluster, fat32)
+    #     return tree
+
+    # def build_directory_tree_recursive(current_node, path, cluster_index, fat32):
+    #     cur_det = fat32.retrieve_path(path)
+    #     entries = cur_det.get_active_entries()
+
+    #     for entry in entries:
+    #         if entry.is_direct():
+    #             sub_path = os.path.join(path, entry.entry_name)
+    #             sub_node = TreeNode(entry.entry_name)
+    #             current_node.children[entry.entry_name] = sub_node
+    #             build_directory_tree_recursive(sub_node, sub_path, entry.start_cluster, fat32)
+
+
+    
