@@ -3,15 +3,7 @@ from datetime import datetime
 from itertools import chain
 import re
 import os
-class TreeNode:
-    def __init__(self, name):
-        self.name = name
-        self.children = {}
 
-
-class DirectoryTree:
-    def __init__(self):
-        self.root = TreeNode("/")
 class FAT32_Attribute(Flag):
     READ_ONLY = auto()
     HIDDEN = auto()
@@ -75,7 +67,7 @@ class RDET_ENTRY:
         entry.last_updated=0
         entry.extend_name=b""#cai nay phai byte string
         
-        if not entry.is_sub_entry:#not LRN
+        if not entry.is_sub_entry:
             entry.name=entry.data[:8]
             
             entry.extend_name=entry.data[8:11]
@@ -345,28 +337,13 @@ class FAT32:
             raw_data=fat32.bin_data.read(min(fat32.sec_per_clus*fat32.bytes_per_sec,size))#doc du lieu entry nay
             size-=fat32.sec_per_clus*fat32.bytes_per_sec# doc tung cluster nen lay entry size - size cluster de dung vong lap
             try:
-                data+= raw_data.decode()
+                data+= raw_data.decode('utf-8')
             except UnicodeDecodeError as e:
                 raise Exception("not text file")
             except Exception as e:
                 raise e
         return data
-    # def make_tree(fat32):
-    #     tree = DirectoryTree()
-    #     root_cluster = fat32.boot_sector["Start Cluster of RDET"]
-    #     build_directory_tree_recursive(tree.root, "", root_cluster, fat32)
-    #     return tree
-
-    # def build_directory_tree_recursive(current_node, path, cluster_index, fat32):
-    #     cur_det = fat32.retrieve_path(path)
-    #     entries = cur_det.get_active_entries()
-
-    #     for entry in entries:
-    #         if entry.is_direct():
-    #             sub_path = os.path.join(path, entry.entry_name)
-    #             sub_node = TreeNode(entry.entry_name)
-    #             current_node.children[entry.entry_name] = sub_node
-    #             build_directory_tree_recursive(sub_node, sub_path, entry.start_cluster, fat32)
+  
 
 
     

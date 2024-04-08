@@ -19,64 +19,58 @@ class FileContentDialog(QDialog):
         layout.addWidget(self.textEdit)
         
         self.setLayout(layout)
-def get_full_path_to_file(fat32, file_name, current_path=""):
-    if current_path == "":
-        current_path = fat32.name
-    
-    # Check if the current directory contains the file
-    cur_det = fat32.retrieve_path(current_path)
-    entry = cur_det.find_entry(file_name)
-    if entry is not None and not entry.is_direct():
-        return current_path
-    
-    # Recursively search in subdirectories
-    entries = cur_det.get_active_entries()
-    for entry in entries:
-        if entry.is_direct():
-            sub_path = os.path.join(current_path, entry.entry_name)
-            full_path = get_full_path_to_file(fat32, file_name, sub_path)
-            if full_path:
-                return full_path
-    
-    return None
+
 class FileExplorerApp(QMainWindow):
     def __init__(self,drive):
         super().__init__()
         self.setWindowTitle("File Explorer")
-        self.setGeometry(100, 100, 800, 600)
+        self.setGeometry(10, 10, 1600, 1000)
 
         self.treeWidget = QTreeWidget()
         self.treeWidget.setHeaderLabels(["Name", "Size"])
-        self.setCentralWidget(self.treeWidget)
+        
+        self.treeWidget.setColumnWidth(0, 600)  # Cột "Name" có kích thước 300 pixels
+        self.treeWidget.setColumnWidth(1, 50)
 
+        
+        self.setCentralWidget(self.treeWidget)
         self.set_selected_drive(drive)
         self.treeWidget.itemDoubleClicked.connect(self.on_item_clicked)
     def set_selected_drive(self, drive):
+    
         self.fat32 = FAT32(drive)
         self.populate_tree()
+    
     def populate_tree(self):
-        header_labels = ["Name", "Size", "Date Created", "Last Modified"]  # Update header labels
+        header_labels = ["Name", "Size", "Date Created", "Last Modified","Attribute"] 
         self.treeWidget.setHeaderLabels(header_labels)
-
+        self.treeWidget.setColumnWidth(2, 300)
+        self.treeWidget.setColumnWidth(3, 300)
+        self.treeWidget.setColumnWidth(4, 200)
         root = QTreeWidgetItem(self.treeWidget, [self.fat32.name])
         self.treeWidget.addTopLevelItem(root)
         self.populate_children(root, self.fat32.RDET.get_active_entries())
-        for i in range(len(header_labels)):
-            self.treeWidget.resizeColumnToContents(i)
+        
 
     def populate_children(self, parent, entries):
         for entry in entries:
             if entry.entry_name not in [".", ".."]:  # Skip entries "." and ".."
-                child = QTreeWidgetItem(parent, [entry.entry_name, str(entry.size), str(entry.create_date), str(entry.last_updated)])
+                child = QTreeWidgetItem(parent, [entry.entry_name, str(entry.size), str(entry.create_date), str(entry.last_updated),str(entry.attr)])
                 parent.addChild(child)
+               
                 if entry.is_direct():
                     try:
-                        sub_entries = self.fat32.retrieve_path(entry.entry_name).get_active_entries()
+                        # Lấy thông tin về thư mục con
+                        
+                        path=self.get_full_path(child)
+                       
+                        sub_dir_info = self.fat32.retrieve_path(path)
+                     
+                        sub_entries = sub_dir_info.get_active_entries()  # Thông tin về các thư mục con
+                        # Đệ quy để thêm các mục con vào cây thư mục
                         self.populate_children(child, sub_entries)
                     except Exception as e:
                         print(f"Error: {e}")
-   
-
     def on_item_clicked(self, item):
         # Get the full path of the clicked item
         file=item.text(0)
@@ -93,7 +87,6 @@ class FileExplorerApp(QMainWindow):
             dialog.exec()
         except Exception as e:
             QMessageBox.warning(self, "Error", str(e))
-
     def get_full_path(self, item):
         # Get the full path of the clicked item by traversing its ancestors
         path = [item.text(0)]
