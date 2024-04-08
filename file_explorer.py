@@ -19,12 +19,34 @@ class FileContentDialog(QDialog):
         layout.addWidget(self.textEdit)
         
         self.setLayout(layout)
-
+class FileContentDialog2(QDialog):
+    def __init__(self, content, size, create_date, last_updated, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("File Infomationnn")
+        
+        self.content = content
+        self.size = size
+        self.create_date = create_date
+        self.last_updated = last_updated
+        
+     
+        attri=QLabel(str(content))
+        size_label = QLabel("Size: " + str(size))
+        create_date_label = QLabel("Create Date: " + str(create_date))
+        last_updated_label = QLabel("Last Updated: " + str(last_updated))
+        
+        layout = QVBoxLayout()
+        layout.addWidget(attri)
+        layout.addWidget(size_label)
+        layout.addWidget(create_date_label)
+        layout.addWidget(last_updated_label)
+        
+        self.setLayout(layout)
 class FileExplorerApp(QMainWindow):
     def __init__(self,drive):
         super().__init__()
         self.setWindowTitle("File Explorer")
-        self.setGeometry(10, 10, 1600, 1000)
+        self.setGeometry(50, 50, 1400, 1000)
 
         self.treeWidget = QTreeWidget()
         self.treeWidget.setHeaderLabels(["Name", "Size"])
@@ -36,6 +58,22 @@ class FileExplorerApp(QMainWindow):
         self.setCentralWidget(self.treeWidget)
         self.set_selected_drive(drive)
         self.treeWidget.itemDoubleClicked.connect(self.on_item_clicked)
+        self.treeWidget.itemClicked.connect(self.print_info)
+    def print_info(self,item):
+        file=item.text(0)
+        full_path = self.get_full_path(item)
+        direc_path=os.path.dirname(full_path)
+        sub_dir_info = self.fat32.retrieve_path(direc_path)
+        sub_entries = sub_dir_info.get_active_entries()
+        for entry in sub_entries:
+            if entry.entry_name.upper()==file and not entry.is_arch():
+                try:
+                    dialog = FileContentDialog2(entry.attr, entry.size,entry.create_date,entry.last_updated)
+                    dialog.exec()
+                except Exception as e:
+                    QMessageBox.warning(self, "Error", str(e))
+            elif entry.entry_name.upper()==file and  entry.is_arch(): self.on_item_clicked(item)
+    
     def set_selected_drive(self, drive):
     
         self.fat32 = FAT32(drive)
