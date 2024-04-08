@@ -56,7 +56,7 @@ class NTFS:
         # print (self.MFTList[38].getParentId())
         # print (self.MFTList[38].getFileSize())
         # print (self.MFTList[38].getDataTxt(self.name))
-        # self.getDirectoryTree()
+        self.getDirectoryTree()
 
       
 
@@ -104,11 +104,11 @@ class NTFS:
             if  self.array[mftEntry.EntryID] == 0 and mftEntry.EntryID != 5 and mftEntry.EntryID > self.getIDLastSystemEntry() and mftEntry.getParentId() == currentNode.id:
                 self.array[mftEntry.EntryID] = 1
                 if mftEntry.isDirectory() and mftEntry.getFileName() != "$RECYCLE.BIN":
-                    node = TreeNode(mftEntry.getFileName(), mftEntry.EntryID)
+                    node = TreeNode(mftEntry.getFileName(), mftEntry.EntryID, mftEntry.getFileSize(), mftEntry.getCreatedTime(), mftEntry.getModified())
                     currentNode.children[mftEntry.getFileName()] = node
                     self.getChildren(node, level + 1)
                 if mftEntry.isFile():
-                    currentNode.children[mftEntry.getFileName()] = TreeNode(mftEntry.getFileName(), mftEntry.EntryID)
+                    currentNode.children[mftEntry.getFileName()] = TreeNode(mftEntry.getFileName(), mftEntry.EntryID, mftEntry.getFileSize(), mftEntry.getCreatedTime(), mftEntry.getModified())
 
     def getIDLastSystemEntry (self):
         for mftEntry in self.MFTList:
