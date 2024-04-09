@@ -72,7 +72,7 @@ class Ui_MainWindow(object):
         self.label_2.setText(_translate("MainWindow", "File management"))
         self.label.setText(_translate("MainWindow", "Chọn ổ đĩa"))
         self.pushButton.setText(_translate("MainWindow", "Hoàn tất"))
-        self.label_3.setText(_translate("MainWindow", "chọn loại ổ đĩa"))
+        self.label_3.setText(_translate("MainWindow", "Tên người dùng"))
    
 
 def list_available_volumes():

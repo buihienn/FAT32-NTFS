@@ -18,8 +18,8 @@ class NTFS:
         "Volume serial number",
         "MFT Entry size",
     ]
-
-    def detectFormat (self, volumePath):
+    @staticmethod
+    def isNTFS (self, volumePath):
         fileIn = open(r'\\.\%s' % volumePath, 'rb')
         oemID = fileIn.read(512)[0x03:0x0B]
         fileIn.close()
@@ -46,11 +46,6 @@ class NTFS:
         
         self.extractMFT()
         self.fileIn.close()
-
-        # print (self.MFTList[41].getFileName())
-        # print (self.MFTList[38].getParentId())
-        # print (self.MFTList[38].getFileSize())
-        # print (self.MFTList[38].getDataTxt(self.name))
         self.getDirectoryTree()
 
     def extractVBR(self):
@@ -80,14 +75,7 @@ class NTFS:
                 count += 1
                 self.mftData = MFTEntry(data)
                 self.MFTList.append(self.mftData)  # lưu MFT
-            
-    def __str__(self) -> str:
-        description = ""
-        description += "Volume name: " + self.name
-        description += "\nVolume information:\n"
-        for attributeName in NTFS.info:
-            description += f"{attributeName}: {self.VBR[attributeName]}\n"
-        return description
+                
     
     def calSizeFolder(self, aimEntryID):
         size = 0
@@ -103,11 +91,12 @@ class NTFS:
 
     def getChildren(self, currentNode, level):
         if level == 0:
+            # set Flags để biết là đã được thêm vô cây chưa
             self.array = {mftEntry.EntryID: 0 for mftEntry in self.MFTList}
         for mftEntry in self.MFTList:
             if  self.array[mftEntry.EntryID] == 0 and mftEntry.EntryID != 5 and mftEntry.EntryID > self.getIDLastSystemEntry() and mftEntry.getParentId() == currentNode.id:
                 self.array[mftEntry.EntryID] = 1
-                if mftEntry.isDirectory() and mftEntry.getFileName() != "$RECYCLE.BIN":
+                if mftEntry.isDirectory() and mftEntry.getFileName() != "$RECYCLE.BIN" and mftEntry.getFileName() != "System Volume Information":
                     size = self.calSizeFolder(mftEntry.EntryID)
                     print (size , " ", mftEntry.getFileName())
                     node = TreeNode(mftEntry.getFileName(), mftEntry.EntryID, size, mftEntry.getCreatedTime(), mftEntry.getModified())
@@ -128,35 +117,21 @@ class NTFS:
         self.getChildren(self.tree.root, 0)
         self.tree.printTree()
         return self.tree
+    
+    def dataFileText(self, EntryID):
+        for mftEntry in self.MFTList:
+            if mftEntry.EntryID == EntryID:
+                return mftEntry.getDataTxt(self.name)
+        return None
 
-
-
-# def listAvailableVolumes():
-#     # Danh sách các ổ đĩa có sẵn trên hệ thống
-#     volumes = [chr(x) + ":" for x in range(65, 91) if os.path.exists(chr(x) + ":")]
-#     # In ra danh sách các ổ đĩa
-#     if volumes:
-#         print("Available volumes:")
-#         for i, volume in enumerate(volumes, start=1):
-#             print(f"{i}. {volume}")
-#     else:
-#         print("")
-
-
-
-# def main():
-#     listAvailableVolumes()
-#     ntfs = NTFS("Z:")
-#     # if ntfs:
-#     #     print (ntfs)
-#     """
-#     try:
-#         # Chọn một ổ đĩa từ danh sách
-#         choice = int(input("Choose a volume: ")) - 1
-#         selected_volume = volumes[choice]
-#     except (ValueError, IndexError):
-#         print("Invalid choice!")
-#         return
-# #     """
-# if __name__ == "__main__":
-#     main()
+    def isFileTXT(self, EntryID):
+        for mftEntry in self.MFTList:
+            if mftEntry.EntryID == EntryID:
+                fileExtension = os.path.splitext(mftEntry.getFileName())[1]  # Lấy phần mở rộng của tên file
+                if mftEntry.isFile() == True and fileExtension == ".txt":
+                    return False
+                else:
+                    return True
+        return None
+    
+    

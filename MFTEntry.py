@@ -1,10 +1,6 @@
 from NTFSAttribute import Attribute
 
 class MFTEntry:
-    # FILE_DELETED = 0x00
-    # FILE_IN_USE = 0x01
-    # Directory_DELETED = 0x02
-    # Directory_IN_USE = 0x03
 
     def __init__(self, data): #data: bytes
         # MFT Entry Header
@@ -80,7 +76,7 @@ class MFTEntry:
     def getAttribute(self):
         for a in self.AttrList:
             if a.attrType == 0x30:
-                return a.objectAttributeList
+                return a.objectAttributeList[0]
         return None
     
 
@@ -99,17 +95,15 @@ class MFTEntry:
             if (a.attrType == 0x80 and fileNameTemp.endswith('.txt') and a.flagResident == 0):
                 dataOfTxt = a.dataOfFile.decode('utf-8')
                 return dataOfTxt
-            # bugggggg
             if (a.attrType == 0x80 and fileNameTemp.endswith('.txt') and a.flagResident == 1):
                 with open(r'\\.\%s' % nameVolume, 'rb') as file: 
-                    print (a.firstCluster)
-                    print (a.clusterCount)
-                    print (fileSize)
                     physicalAddress = a.firstCluster * 4096
-                    print (physicalAddress)
                     file.seek(physicalAddress)
                     dataOfTxt = file.read(fileSize).decode('utf-8')
                     file.close()
                 return dataOfTxt
         return None
+    
+
+
     
