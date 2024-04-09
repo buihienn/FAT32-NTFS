@@ -8,11 +8,8 @@ class NTFS:
         "OEM ID",
         "Bytes per sector",
         "Sectors per Cluster",
-        #"Reserved sectors",
-        #"Media descriptor",
         "Sectors per track",
         "Number of heads",
-        #"Hidden sectors",
         "Total sectors",
         "$MFT cluster number",
         "$MFTMirr cluster number",
@@ -47,18 +44,14 @@ class NTFS:
         #List MFT Entries
         self.MFTList = []
         
-        # self.MFTListTest = []
         self.extractMFT()
         self.fileIn.close()
-        # self.MFTList[37].header.printTest()
 
-        # print (self.MFTList[38].getFileName())
+        # print (self.MFTList[41].getFileName())
         # print (self.MFTList[38].getParentId())
         # print (self.MFTList[38].getFileSize())
         # print (self.MFTList[38].getDataTxt(self.name))
         self.getDirectoryTree()
-
-      
 
     def extractVBR(self):
         self.VBR["JUMP instruction"] = hex(int.from_bytes(self.bootSectorRaw[:3], byteorder= 'little'))
@@ -96,6 +89,17 @@ class NTFS:
             description += f"{attributeName}: {self.VBR[attributeName]}\n"
         return description
     
+    def calSizeFolder(self, aimEntryID):
+        size = 0
+        for mftEntry in self.MFTList:
+            if mftEntry.getParentId() == aimEntryID:
+                if mftEntry.isDirectory():
+                    size = size + self.calSizeFolder(mftEntry.EntryID)
+                if mftEntry.isFile():
+                    size = size + mftEntry.getFileSize()
+        return size
+
+
 
     def getChildren(self, currentNode, level):
         if level == 0:
@@ -104,7 +108,9 @@ class NTFS:
             if  self.array[mftEntry.EntryID] == 0 and mftEntry.EntryID != 5 and mftEntry.EntryID > self.getIDLastSystemEntry() and mftEntry.getParentId() == currentNode.id:
                 self.array[mftEntry.EntryID] = 1
                 if mftEntry.isDirectory() and mftEntry.getFileName() != "$RECYCLE.BIN":
-                    node = TreeNode(mftEntry.getFileName(), mftEntry.EntryID, mftEntry.getFileSize(), mftEntry.getCreatedTime(), mftEntry.getModified())
+                    size = self.calSizeFolder(mftEntry.EntryID)
+                    print (size , " ", mftEntry.getFileName())
+                    node = TreeNode(mftEntry.getFileName(), mftEntry.EntryID, size, mftEntry.getCreatedTime(), mftEntry.getModified())
                     currentNode.children[mftEntry.getFileName()] = node
                     self.getChildren(node, level + 1)
                 if mftEntry.isFile():
@@ -116,18 +122,13 @@ class NTFS:
                 return mftEntry.EntryID
         return 31
     
+    
     def getDirectoryTree(self):
         self.tree = TreeDirectory()
         self.getChildren(self.tree.root, 0)
         self.tree.printTree()
         return self.tree
 
-
-
-def getBasename(path):
-    # Sử dụng os.path.basename để lấy tên file hoặc thư mục cuối cùng trong đường dẫn
-    return os.path.basename(path)
-    
 
 
 # def listAvailableVolumes():

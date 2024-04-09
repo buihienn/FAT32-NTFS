@@ -10,10 +10,10 @@ class TreeNode:
 
 class TreeDirectory:
     def __init__(self):
-        self.root = TreeNode("root", 5 ,0,0,0)
+        self.root = TreeNode("Main", 5 ,0,0,0)
     
     def printRecursive(self, currentNode, depth):
-        print('   ' * depth + currentNode.name + " " + str(currentNode.fileSize))
+        print('   ' * depth + currentNode.name + " " + str(currentNode.id))
         for child in currentNode.children.values():
             self.printRecursive(child, depth + 1)
 

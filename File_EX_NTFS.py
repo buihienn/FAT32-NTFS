@@ -28,7 +28,7 @@ class NTFS_FileExplorerApp(QMainWindow):
 
     def populate_children(self, parent_item, children):
         for name, node in children.items():
-            item = QTreeWidgetItem(parent_item, [name, str(node.fileSize), str(node.dateCreated), str(node.dateModified)])  # Create tree item with node name
+            item = QTreeWidgetItem(parent_item, [name, str(node.fileSize) + " bytes", str(node.dateCreated), str(node.dateModified)])  # Create tree item with node name
             parent_item.addChild(item)
             self.populate_children(item, node.children)  # Recursively populate children
     

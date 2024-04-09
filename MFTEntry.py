@@ -66,14 +66,10 @@ class MFTEntry:
         return None
 
     def getFileSize(self):
-        # if self.isDirectory():
-        #     for mftEntry in self.MFTList:
-        #         if 
-        #     return self.calSizeFolder()
         for a in self.AttrList:
             if a.attrType == 0x80:
                 return a.realSize
-        return None
+        return 0
 
     def isFile(self):
         return self.flag == 0x01
@@ -81,15 +77,21 @@ class MFTEntry:
     def isDirectory(self):
         return self.flag == 0x03
     
-    def calSizeFolder(self, folderSize, aimEntryID):
-        for mftEntry in self.MFTList:
-            if mftEntry.getParentId() == aimEntryID:
-                if mftEntry.isDirectory():
-                    size = self.calSizeFolder(folderSize, mftEntry)
-                if mftEntry.isFile():
-                    size += mftEntry.getFileSize()
-        return size
+    def getAttribute(self):
+        for a in self.AttrList:
+            if a.attrType == 0x30:
+                return a.objectAttributeList
+        return None
     
+
+    def isSystemOrHidden(self):
+        objectAttributeList = self.getAttribute()
+        print (objectAttributeList[0])
+        for attr in objectAttributeList:
+            if attr == "System" or attr == "Hidden":
+                return True
+        return False 
+
     def getDataTxt(self, nameVolume):
         fileNameTemp = self.getFileName()
         fileSize = self.getFileSize()
@@ -106,7 +108,7 @@ class MFTEntry:
                     physicalAddress = a.firstCluster * 4096
                     print (physicalAddress)
                     file.seek(physicalAddress)
-                    dataOfTxt = file.read(fileSize + 12000).decode('utf-8')
+                    dataOfTxt = file.read(fileSize).decode('utf-8')
                     file.close()
                 return dataOfTxt
         return None

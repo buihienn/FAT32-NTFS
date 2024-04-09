@@ -24,10 +24,9 @@ class Attribute:
         if (self.attrType ==0x30):  
             self.IdParentFolder = int.from_bytes(data[jumpAttrData + 0x00:jumpAttrData + 0x06], byteorder='little')
             # Attribute File
-            self.fileAttributeRaw = int.from_bytes(data[jumpAttrData + 0x38:jumpAttrData + 0x3C], byteorder='little')
-            self.fileAttributeList = []
+            self.objectAttributeRaw = int.from_bytes(data[jumpAttrData + 0x38:jumpAttrData + 0x3C], byteorder='little')
+            self.objectAttributeList = []
             self.extractFileAttributes()
-
             #File Name
             self.fileNameLength = int.from_bytes(data[jumpAttrData + 0x40:jumpAttrData + 0x41], byteorder='little')
             self.fileName = data[jumpAttrData + 0x42 : jumpAttrData + 0x42 + self.fileNameLength * 2].decode('utf-16-le')
@@ -62,13 +61,13 @@ class Attribute:
         return formattedDatetime
     
     def extractFileAttributes(self):
-        if self.fileAttributeRaw & 0x01:
-            self.fileAttributeList.append("Read-only")
-        if self.fileAttributeRaw & 0x02:
-            self.fileAttributeList.append("Hidden")
-        if self.fileAttributeRaw & 0x04:
-            self.fileAttributeList.append("System")
-        if self.fileAttributeRaw & 0x20:
-            self.fileAttributeList.append("Archive")
-        if self.fileAttributeRaw & 0x10000000:
-            self.fileAttributeList.append("Directory")
+        if self.objectAttributeRaw & 0x01:
+            self.objectAttributeList.append("Read-only")
+        if self.objectAttributeRaw & 0x02:
+            self.objectAttributeList.append("Hidden")
+        if self.objectAttributeRaw & 0x04:
+            self.objectAttributeList.append("System")
+        if self.objectAttributeRaw & 0x20:
+            self.objectAttributeList.append("Archive")
+        if self.objectAttributeRaw & 0x10000000:
+            self.objectAttributeList.append("Directory")
