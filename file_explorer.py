@@ -61,18 +61,22 @@ class FileExplorerApp(QMainWindow):
         self.treeWidget.itemClicked.connect(self.print_info)
     def print_info(self,item):
         file=item.text(0)
+        print(file)
         full_path = self.get_full_path(item)
         direc_path=os.path.dirname(full_path)
         sub_dir_info = self.fat32.retrieve_path(direc_path)
         sub_entries = sub_dir_info.get_active_entries()
         for entry in sub_entries:
-            if entry.entry_name.upper()==file and not entry.is_arch():
+
+            if entry.entry_name.upper()==file.upper() :
                 try:
+                    print("coc")
                     dialog = FileContentDialog2(entry.attr, entry.size,entry.create_date,entry.last_updated)
                     dialog.exec()
+                    if entry.is_arch(): self.on_item_clicked(item)
                 except Exception as e:
                     QMessageBox.warning(self, "Error", str(e))
-            elif entry.entry_name.upper()==file and  entry.is_arch(): self.on_item_clicked(item)
+            #elif entry.entry_name.upper()==file.upper() and  entry.is_arch(): self.on_item_clicked(item)
     
     def set_selected_drive(self, drive):
     
