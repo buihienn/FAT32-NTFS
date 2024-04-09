@@ -1,11 +1,13 @@
 import sys
-from PyQt6.QtWidgets import QApplication, QMainWindow, QTreeWidget, QTreeWidgetItem
+from PyQt6.QtWidgets import QApplication, QMainWindow, QTreeWidget, QTreeWidgetItem,QPushButton,QMenu
 from PyQt6.QtWidgets import QDialog, QLabel, QVBoxLayout
 from PyQt6.QtWidgets import QApplication, QMainWindow, QTreeWidget, QTreeWidgetItem, QDialog, QLabel, QVBoxLayout, QMessageBox
-
+from PyQt6 import QtCore, QtGui, QtWidgets
 from PyQt6.QtCore import QDir
 from PyQt6.QtWidgets import QTextEdit
 from FAT32 import FAT32
+from functools import partial
+
 import os
 class FileContentDialog(QDialog):
     def __init__(self, content, parent=None):
@@ -42,41 +44,118 @@ class FileContentDialog2(QDialog):
         layout.addWidget(last_updated_label)
         
         self.setLayout(layout)
+class DialogForArchiveFile(QDialog):
+    def __init__(self, content, size, create_date, last_updated,content2, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("File Infomationnn")
+        
+        self.content = content
+        self.size = size
+        self.create_date = create_date
+        self.last_updated = last_updated
+        
+     
+        attri=QLabel(str(content))
+        size_label = QLabel("Size: " + str(size))
+        create_date_label = QLabel("Create Date: " + str(create_date))
+        last_updated_label = QLabel("Last Updated: " + str(last_updated))
+        self.open_button=QPushButton("OPEN")
+        
+        layout = QVBoxLayout()
+        layout.addWidget(attri)
+        layout.addWidget(size_label)
+        layout.addWidget(create_date_label)
+        layout.addWidget(last_updated_label)
+        layout.addWidget(self.open_button)
+        self.open_button.clicked.connect(partial(self.open_item, content2))
+        self.setLayout(layout)
+
+    def open_item(self,content2):
+        dialog = FileContentDialog(content2, self)
+        dialog.exec() 
+        
 class FileExplorerApp(QMainWindow):
+    
     def __init__(self,drive):
         super().__init__()
         self.setWindowTitle("File Explorer")
         self.setGeometry(50, 50, 1400, 1000)
-
+        
         self.treeWidget = QTreeWidget()
         self.treeWidget.setHeaderLabels(["Name", "Size"])
         
         self.treeWidget.setColumnWidth(0, 600)  # Cột "Name" có kích thước 300 pixels
         self.treeWidget.setColumnWidth(1, 50)
 
+        # self.context_menu=QMenu(self)
         
+        # action1=self.context_menu.addAction("Print Info")
+        # action2=self.context_menu.addAction("Open File Content")
+        # action1.triggered.connect(self.print_infor)
+        # action2.triggered.connect(self.on_item_clicked)
+
+        # self.context_menu2=QMenu(self)
+        # actiontext=self.context_menu2.addAction("Print Info")
+        # actiontext.triggered.connect(self.print_info)
+       
         self.setCentralWidget(self.treeWidget)
         self.set_selected_drive(drive)
-        self.treeWidget.itemDoubleClicked.connect(self.on_item_clicked)
+        #self.treeWidget.itemDoubleClicked.connect(self.on_item_clicked)
         self.treeWidget.itemClicked.connect(self.print_info)
-    def print_info(self,item):
+
+        #self.open_button.clicked.connect()
+    
+    def click_item(self,item):
         file=item.text(0)
         print(file)
         full_path = self.get_full_path(item)
         direc_path=os.path.dirname(full_path)
         sub_dir_info = self.fat32.retrieve_path(direc_path)
         sub_entries = sub_dir_info.get_active_entries()
+        print("hee")
+        for entry in sub_entries:
+            if entry.entry_name.upper()==file.upper() :
+                n=entry.name
+                s=entry.size
+
+                if entry.is_arch():
+                    self.context_menu.exec()
+                else:
+                    self.context_menu2.exec()
+    
+    def print_info(self,item):
+        file=item.text(0)
+        print(file)
+        full_path = self.get_full_path(item)
+        direc_path=os.path.dirname(full_path)
+       
+        sub_dir_info = self.fat32.retrieve_path(direc_path)
+        sub_entries = sub_dir_info.get_active_entries()
+        
         for entry in sub_entries:
 
             if entry.entry_name.upper()==file.upper() :
-                try:
-                    print("coc")
-                    dialog = FileContentDialog2(entry.attr, entry.size,entry.create_date,entry.last_updated)
-                    dialog.exec()
-                    if entry.is_arch(): self.on_item_clicked(item)
-                except Exception as e:
-                    QMessageBox.warning(self, "Error", str(e))
-            #elif entry.entry_name.upper()==file.upper() and  entry.is_arch(): self.on_item_clicked(item)
+                if entry.is_arch():
+                    try:
+                        print("iii")
+                        self.fat32.move_to_directory(direc_path)
+                        content=self.fat32.get_File_content(file)
+                        dialog = DialogForArchiveFile(entry.attr, entry.size,entry.create_date,entry.last_updated,content)
+                        dialog.exec()
+                    except Exception as e:
+                        QMessageBox.warning(self, "Error", str(e))
+                else: 
+                    try:
+                        print("iii")
+                        dialog = FileContentDialog2(entry.attr, entry.size,entry.create_date,entry.last_updated)
+                        dialog.exec()
+                    except Exception as e:
+                        QMessageBox.warning(self, "Error", str(e))
+            # elif entry.entry_name.upper()==file.upper() and  entry.is_arch():
+            #     try:
+                   
+            #     except Exception as e:
+            #         QMessageBox.warning(self, "Error", str(e))
     
     def set_selected_drive(self, drive):
     
