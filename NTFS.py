@@ -43,9 +43,9 @@ class NTFS:
         
         #List MFT Entries
         self.MFTList = []
-        
         self.extractMFT()
         self.fileIn.close()
+
         self.getDirectoryTree()
 
     def extractVBR(self):
@@ -89,28 +89,20 @@ class NTFS:
 
 
 
-    def getChildren(self, currentNode, level):
+    def getChildren(self, curNode, level):
         if level == 0:
-            # set Flags để biết là đã được thêm vô cây chưa
             self.array = {mftEntry.EntryID: 0 for mftEntry in self.MFTList}
         for mftEntry in self.MFTList:
-            if  self.array[mftEntry.EntryID] == 0 and mftEntry.EntryID != 5 and mftEntry.EntryID > self.getIDLastSystemEntry() and mftEntry.getParentId() == currentNode.id:
+            if  self.array[mftEntry.EntryID] == 0 and mftEntry.EntryID != 5 and mftEntry.isSystemFile() == False and mftEntry.getParentId() == curNode.id:
                 self.array[mftEntry.EntryID] = 1
-                if mftEntry.isDirectory() and mftEntry.getFileName() != "$RECYCLE.BIN" and mftEntry.getFileName() != "System Volume Information":
+                if mftEntry.isDirectory() :
                     size = self.calSizeFolder(mftEntry.EntryID)
-                    print (size , " ", mftEntry.getFileName())
                     node = TreeNode(mftEntry.getFileName(), mftEntry.EntryID, size, mftEntry.getCreatedTime(), mftEntry.getModified())
-                    currentNode.children[mftEntry.getFileName()] = node
+                    curNode.children[mftEntry.getFileName()] = node
                     self.getChildren(node, level + 1)
                 if mftEntry.isFile():
-                    currentNode.children[mftEntry.getFileName()] = TreeNode(mftEntry.getFileName(), mftEntry.EntryID, mftEntry.getFileSize(), mftEntry.getCreatedTime(), mftEntry.getModified())
+                    curNode.children[mftEntry.getFileName()] = TreeNode(mftEntry.getFileName(), mftEntry.EntryID, mftEntry.getFileSize(), mftEntry.getCreatedTime(), mftEntry.getModified())
 
-    def getIDLastSystemEntry (self):
-        for mftEntry in self.MFTList:
-            if mftEntry.getFileName() == "Recovery":
-                return mftEntry.EntryID
-        return 31
-    
     
     def getDirectoryTree(self):
         self.tree = TreeDirectory()
@@ -129,9 +121,9 @@ class NTFS:
             if mftEntry.EntryID == EntryID:
                 fileExtension = os.path.splitext(mftEntry.getFileName())[1]  # Lấy phần mở rộng của tên file
                 if mftEntry.isFile() == True and fileExtension == ".txt":
-                    return False
-                else:
                     return True
+                else:
+                    return False
         return None
-    
+
     

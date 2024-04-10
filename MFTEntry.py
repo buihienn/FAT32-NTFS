@@ -73,20 +73,6 @@ class MFTEntry:
     def isDirectory(self):
         return self.flag == 0x03
     
-    def getAttribute(self):
-        for a in self.AttrList:
-            if a.attrType == 0x30:
-                return a.objectAttributeList[0]
-        return None
-    
-
-    def isSystemOrHidden(self):
-        objectAttributeList = self.getAttribute()
-        print (objectAttributeList[0])
-        for attr in objectAttributeList:
-            if attr == "System" or attr == "Hidden":
-                return True
-        return False 
 
     def getDataTxt(self, nameVolume):
         fileNameTemp = self.getFileName()
@@ -105,5 +91,18 @@ class MFTEntry:
         return None
     
 
-
+    def getAttribute(self):
+        for a in self.AttrList:
+            if a.attrType == 0x30:
+                return a.objectAttributeList
+        return None
     
+    def isSystemFile (self):
+        for a in self.AttrList:
+            if a.attrType == 0x30:
+                if '$' in a.fileName:
+                    return True
+                for attr in a.objectAttributeList:
+                    if attr == "System" or attr == "Hidden":
+                        return True
+        return False

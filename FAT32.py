@@ -3,15 +3,7 @@ from datetime import datetime
 from itertools import chain
 import re
 import os
-class TreeNode:
-    def __init__(self, name):
-        self.name = name
-        self.children = {}
 
-
-class DirectoryTree:
-    def __init__(self):
-        self.root = TreeNode("/")
 class FAT32_Attribute(Flag):
     READ_ONLY = auto()
     HIDDEN = auto()
@@ -165,8 +157,7 @@ class FAT32:
         data = b""
 
         for i in cluster_list:
-            #if i<2:
-                #continue
+
             sector_index = fat32.reserved_sec + fat32.sec_per_fat*fat32.num_fat + (i-2)*fat32.sec_per_clus
             fat32.bin_data.seek(sector_index * fat32.bytes_per_sec)
             data += fat32.bin_data.read(fat32.bytes_per_sec * fat32.sec_per_clus)
@@ -218,19 +209,7 @@ class FAT32:
         except Exception as error:
             print(f"Error:{error}")
             exit()
-    def __str__(fat32):
-        
-        data = "VOLUME INFO\n"
-        data += "Name: " + fat32.name + '\n'
-        info = fat32.boot_sector.items()
 
-        for i in info:
-            data += str(i[0]) + ': ' + str(i[1]) + '\n'
-        return data
-    def __del__(self):
-        if getattr(self, "bin_data", None):
-            print("Closing")
-            self.bin_data.close()
     @staticmethod
     def is_FAT32(name):
         try:
@@ -338,8 +317,6 @@ class FAT32:
         for cluster in cluster_list:
             if size<=0:
                 break
-            #if cluster<2:
-             #   continue
             sector_offset=fat32.count_sector_offset_in_cluster(cluster)#tim vi tri sector bat dau cua entry 
             fat32.bin_data.seek(sector_offset*fat32.bytes_per_sec)#seek toi vi tri sector bat dau do
             raw_data=fat32.bin_data.read(min(fat32.sec_per_clus*fat32.bytes_per_sec,size))#doc du lieu entry nay
@@ -351,28 +328,4 @@ class FAT32:
             except Exception as e:
                 raise e
         return data
-    def move_to_parent_directory(self):
-        # Di chuyển đến thư mục cha
-        parent_directory = os.path.dirname(self.getCWD())
-        # Đảm bảo không vượt ra khỏi thư mục gốc
-        if parent_directory != "/":
-            self.current_directory = parent_directory
-    # def make_tree(fat32):
-    #     tree = DirectoryTree()
-    #     root_cluster = fat32.boot_sector["Start Cluster of RDET"]
-    #     build_directory_tree_recursive(tree.root, "", root_cluster, fat32)
-    #     return tree
-
-    # def build_directory_tree_recursive(current_node, path, cluster_index, fat32):
-    #     cur_det = fat32.retrieve_path(path)
-    #     entries = cur_det.get_active_entries()
-
-    #     for entry in entries:
-    #         if entry.is_direct():
-    #             sub_path = os.path.join(path, entry.entry_name)
-    #             sub_node = TreeNode(entry.entry_name)
-    #             current_node.children[entry.entry_name] = sub_node
-    #             build_directory_tree_recursive(sub_node, sub_path, entry.start_cluster, fat32)
-
-
     
